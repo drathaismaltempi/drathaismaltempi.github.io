@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
 from fastapi import (
@@ -23,9 +25,12 @@ from pydantic import BaseModel, Field
 
 from src.config import settings
 from src.services.chatgpt import ChatGPTService, TriagePrompt
+from src.services.exams import ExamOCRPipeline
 from src.storage import LogRecord, persist_log
 
 app = FastAPI(title="Clinical Triage API", version="0.1.0")
+logger = logging.getLogger(__name__)
+exam_pipeline = ExamOCRPipeline()
 
 
 class PatientDemographics(BaseModel):
@@ -53,6 +58,36 @@ class Complaint(BaseModel):
     )
 
 
+class ReferenceRangeModel(BaseModel):
+    """Reference interval associated with an extracted exam measurement."""
+
+    low: Optional[float] = None
+    high: Optional[float] = None
+    unit: Optional[str] = None
+
+
+class ExamMeasurementModel(BaseModel):
+    """Structured laboratory measurement extracted from an exam document."""
+
+    name: str
+    value: Optional[float] = None
+    unit: Optional[str] = None
+    raw_value: str
+    reference_range: Optional[ReferenceRangeModel] = None
+    classification: str
+    is_critical: bool = False
+    notes: Optional[List[str]] = None
+
+
+class ExamAnalysisModel(BaseModel):
+    """OCR analysis output for an exam file."""
+
+    source: str
+    text_excerpt: str
+    measurements: List[ExamMeasurementModel]
+    critical_findings: List[str] = Field(default_factory=list)
+
+
 class ExamFile(BaseModel):
     """Metadata describing external exam files available for review."""
 
@@ -62,6 +97,14 @@ class ExamFile(BaseModel):
     )
     file_type: Optional[str] = Field(None, description="Media type of the file, e.g., image/jpeg.")
     description: Optional[str] = Field(None, description="Free text explaining the file contents.")
+    analysis: Optional[ExamAnalysisModel] = Field(
+        default=None,
+        description="OCR-derived structured measurements extracted from the exam.",
+    )
+    analysis_error: Optional[str] = Field(
+        default=None,
+        description="Error message captured when OCR analysis fails for this exam.",
+    )
 
 
 class TriageRequest(BaseModel):
@@ -134,6 +177,65 @@ def _store_uploads(label: str, uploads: List[UploadFile]) -> List[ExamFile]:
     return saved
 
 
+def _extract_local_exam_path(url: Optional[str]) -> Optional[Path]:
+    """Return a local filesystem path if the exam URL references a local file."""
+
+    if not url:
+        return None
+    parsed = urlparse(url)
+    if parsed.scheme != "file":
+        return None
+    return Path(unquote(parsed.path))
+
+
+def _enrich_exam_files(exam_files: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Attach OCR analysis output to exam metadata when files are local."""
+
+    enriched: List[Dict[str, Any]] = []
+    for exam in exam_files:
+        exam_copy = dict(exam)
+        path = _extract_local_exam_path(exam_copy.get("url"))
+        if path and path.exists():
+            try:
+                analysis = exam_pipeline.analyze(path)
+                exam_copy["analysis"] = analysis.to_dict()
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.warning("Failed to analyze exam %s: %s", path, exc)
+                exam_copy["analysis_error"] = str(exc)
+        enriched.append(exam_copy)
+    return enriched
+
+
+def _summarize_exam_analysis(exam_files: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Build a compact summary of the extracted exam measurements."""
+
+    summaries: List[Dict[str, Any]] = []
+    for exam in exam_files:
+        analysis = exam.get("analysis")
+        if not analysis:
+            continue
+        measurements = analysis.get("measurements") or []
+        summaries.append(
+            {
+                "label": exam.get("label"),
+                "source": analysis.get("source"),
+                "critical_findings": analysis.get("critical_findings") or [],
+                "measurements": [
+                    {
+                        "name": item.get("name"),
+                        "value": item.get("value"),
+                        "unit": item.get("unit"),
+                        "classification": item.get("classification"),
+                        "is_critical": item.get("is_critical"),
+                        "reference_range": item.get("reference_range"),
+                    }
+                    for item in measurements
+                ],
+            }
+        )
+    return summaries
+
+
 def _perform_triage(request: TriageRequest) -> TriageResponse:
     """Shared triage execution used by both JSON and form submissions."""
 
@@ -142,12 +244,21 @@ def _perform_triage(request: TriageRequest) -> TriageResponse:
     if not patient.get("patient_id"):
         patient["patient_id"] = _generate_patient_id(patient)
 
+    exam_files_payload = payload.get("exam_files", [])
+    if exam_files_payload:
+        enriched_exam_files = _enrich_exam_files(exam_files_payload)
+        payload["exam_files"] = enriched_exam_files
+        summary = _summarize_exam_analysis(enriched_exam_files)
+        if summary:
+            payload["exam_analysis_summary"] = {"items": summary}
+
     try:
         service = ChatGPTService()
         prompt = TriagePrompt(
             patient=patient,
             complaints={"items": payload.get("complaints", [])},
             exams={"items": payload.get("exam_files", [])},
+            exam_analysis=payload.get("exam_analysis_summary"),
         )
         gpt_response = service.triage(prompt)
     except HTTPException:

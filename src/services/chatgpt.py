@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from openai import OpenAI
 
@@ -18,6 +18,7 @@ class TriagePrompt:
     patient: Dict[str, Any]
     complaints: Dict[str, Any]
     exams: Dict[str, Any]
+    exam_analysis: Optional[Dict[str, Any]] = None
 
     def render(self) -> str:
         """Convert the triage information into a natural language prompt."""
@@ -25,6 +26,11 @@ class TriagePrompt:
         patient_block = json.dumps(self.patient, indent=2, sort_keys=True)
         complaints_block = json.dumps(self.complaints, indent=2, sort_keys=True)
         exam_block = json.dumps(self.exams, indent=2, sort_keys=True)
+        analysis_block = (
+            json.dumps(self.exam_analysis, indent=2, sort_keys=True)
+            if self.exam_analysis
+            else "None provided"
+        )
         return (
             "You are a medical triage assistant. Review the following patient information\n"
             "and provide a prioritized list of concerns, recommended next steps, and\n"
@@ -32,6 +38,7 @@ class TriagePrompt:
             f"Patient demographics:\n{patient_block}\n\n"
             f"Patient complaints:\n{complaints_block}\n\n"
             f"Exam files metadata:\n{exam_block}\n\n"
+            f"OCR exam analysis summary:\n{analysis_block}\n\n"
             "Respond using JSON with the keys 'priority_level', 'summary',\n"
             "'recommended_actions', and 'follow_up'."
         )

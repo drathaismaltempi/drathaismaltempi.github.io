@@ -12,7 +12,8 @@ information to OpenAI's ChatGPT models, and stores request/response logs for fut
     ├── api.py              # FastAPI application and request models
     ├── config.py           # Environment driven configuration helpers
     ├── services/
-    │   └── chatgpt.py      # Prompt construction and ChatGPT client wrapper
+    │   ├── chatgpt.py      # Prompt construction and ChatGPT client wrapper
+    │   └── exams.py        # OCR and laboratory exam interpretation pipeline
     └── storage.py          # SQLite-backed request/response logging utilities
 ```
 
@@ -112,10 +113,26 @@ by the [Responses API](https://platform.openai.com/docs/guides/responses) can be
 }
 ```
 
+## Laboratory exam OCR and classification
+
+- Uploaded PDF or image-based exam files (`file://` URIs produced by the public form) are parsed by
+  `src/services/exams.py` using `pdfplumber` for text-based PDFs and `pytesseract` (Tesseract OCR) for
+  raster images.
+- Extracted measurements are normalized, matched against built-in reference ranges, and classified as
+  `within_range`, `out_of_range`, or `critical`. Critical findings and a condensed summary are added to
+  the triage prompt so the AI model can react to abnormal values.
+- When OCR fails, the captured error is attached to the exam metadata so operators can troubleshoot
+  the ingestion issue without blocking the rest of the triage workflow.
+
+> **Note:** Image OCR requires the native [Tesseract](https://github.com/tesseract-ocr/tesseract)
+> binary to be installed on the host in addition to the Python `pytesseract` package. PDF text
+> extraction does not require extra system dependencies.
+
 ## Running Locally
 
 1. Create and activate a virtual environment.
-2. Install dependencies with `pip install -r requirements.txt`.
+2. Install dependencies with `pip install -r requirements.txt`. Install the Tesseract binary if you
+   plan to process image-based exams.
 3. Export the required environment variables (or create a `.env` file).
 4. Start the application using Uvicorn:
 
