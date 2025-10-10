@@ -53,6 +53,11 @@ development. The configuration module loads and expands file system paths automa
 3. Restart the application (or reload your process manager) so the new environment variables are
    picked up.
 
+> **Do not hard-code secrets in `src/config.py`.** The `Settings` class automatically reads the
+> values from the environment (or `.env` file) at runtime, so you should never replace
+> `OPENAI_API_KEY` in the source code with your real key. Keeping the key outside the repository
+> prevents accidental leaks when committing or sharing the project.
+
 When hosted on a platform that manages secrets (Docker, Render, Vercel, AWS, etc.), set the same
 variables in the provider's configuration UI instead of the `.env` file. Any model string supported
 by the [Responses API](https://platform.openai.com/docs/guides/responses) can be supplied via

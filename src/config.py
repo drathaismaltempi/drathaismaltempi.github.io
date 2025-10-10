@@ -13,7 +13,10 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = Field(
         default=None,
         env="OPENAI_API_KEY",
-        description="API key used to authenticate with OpenAI's APIs.",
+        description=(
+            "API key used to authenticate with OpenAI's APIs. Configure this via environment "
+            "variables or a .env file instead of editing the source code."
+        ),
     )
     openai_model: str = Field(
         default="gpt-4.1-mini",
