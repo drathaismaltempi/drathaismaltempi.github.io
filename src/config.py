@@ -38,6 +38,36 @@ class Settings(BaseSettings):
         env="TRIAGE_UPLOAD_DIR",
         description="Directory where uploaded exam files will be stored.",
     )
+    smtp_host: str = Field(
+        default="smtp.gmail.com",
+        env="SMTP_HOST",
+        description="Hostname of the SMTP server used to dispatch physician summaries.",
+    )
+    smtp_port: int = Field(
+        default=587,
+        env="SMTP_PORT",
+        description="Port of the SMTP server used to dispatch physician summaries.",
+    )
+    smtp_username: Optional[str] = Field(
+        default=None,
+        env="SMTP_USERNAME",
+        description="SMTP username (typically the Gmail address) used for authentication.",
+    )
+    smtp_password: Optional[str] = Field(
+        default=None,
+        env="SMTP_PASSWORD",
+        description="SMTP password or app password used for authentication.",
+    )
+    smtp_sender: Optional[str] = Field(
+        default="drathaispreconsulta@gmail.com",
+        env="SMTP_SENDER",
+        description="Email address to use in the From header when emailing physicians.",
+    )
+    physician_email_recipient: str = Field(
+        default="drathaismaltempi@outlook.com",
+        env="PHYSICIAN_EMAIL_TO",
+        description="Destination inbox for automated physician summaries.",
+    )
 
     class Config:
         env_file = ".env"
