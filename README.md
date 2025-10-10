@@ -12,7 +12,8 @@ information to OpenAI's ChatGPT models, and stores request/response logs for fut
     ├── api.py              # FastAPI application and request models
     ├── config.py           # Environment driven configuration helpers
     ├── services/
-    │   ├── chatgpt.py      # Prompt construction and ChatGPT client wrapper
+    │   ├── chatgpt.py      # Prompt construction and ChatGPT client wrappers
+    │   ├── emailer.py      # SMTP helper for dispatching physician summaries
     │   └── exams.py        # OCR and laboratory exam interpretation pipeline
     └── storage.py          # SQLite-backed request/response logging utilities
 ```
@@ -36,6 +37,13 @@ X-API-Key: ${TRIAGE_API_TOKEN}
   Defaults to `data/triage_logs.db`.
 - `TRIAGE_UPLOAD_DIR` (optional): Directory where uploaded exam files from the public form are
   stored. Defaults to `data/uploads`.
+- `SMTP_HOST`, `SMTP_PORT` (optional): SMTP server coordinates for sending physician summaries.
+- `SMTP_USERNAME`, `SMTP_PASSWORD` (required for email): Credentials for the Gmail/App Password
+  used to deliver the structured summaries.
+- `SMTP_SENDER` (optional): Address to appear in the `From` header. Defaults to
+  `drathaispreconsulta@gmail.com`.
+- `PHYSICIAN_EMAIL_TO` (optional): Destination inbox for the summaries. Defaults to
+  `drathaismaltempi@outlook.com`.
 
 Environment variables can be stored in a `.env` file located in the project root during local
 development. The configuration module loads and expands file system paths automatically.
@@ -127,6 +135,19 @@ by the [Responses API](https://platform.openai.com/docs/guides/responses) can be
 > **Note:** Image OCR requires the native [Tesseract](https://github.com/tesseract-ocr/tesseract)
 > binary to be installed on the host in addition to the Python `pytesseract` package. PDF text
 > extraction does not require extra system dependencies.
+
+## Structured physician e-mail summaries
+
+- After the triage JSON is produced, the backend now prompts ChatGPT a second time to build a
+  physician-facing orchestration payload and Markdown e-mail that follows the requested template
+  (dados do paciente, tabela de exames, hipóteses diferenciais, sugestões integrativas, alertas,
+  etc.).
+- The orchestration JSON is attached to the API response under `physician_summary` and stored in the
+  audit log so downstream systems can ingest the structured view.
+- The generated Markdown body is delivered via SMTP (Gmail) to
+  `drathaismaltempi@outlook.com`. Configure `SMTP_USERNAME`/`SMTP_PASSWORD` with the
+  `drathaispreconsulta@gmail.com` account or another credentialed sender. Failures are surfaced in
+  the API response (`physician_summary.email.sent`/`error`).
 
 ## Running Locally
 

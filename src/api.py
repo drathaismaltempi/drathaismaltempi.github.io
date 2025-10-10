@@ -24,13 +24,15 @@ from fastapi import (
 from pydantic import BaseModel, Field
 
 from src.config import settings
-from src.services.chatgpt import ChatGPTService, TriagePrompt
+from src.services.chatgpt import ChatGPTService, PhysicianSummaryPrompt, TriagePrompt
+from src.services.emailer import EmailService
 from src.services.exams import ExamOCRPipeline
 from src.storage import LogRecord, persist_log
 
 app = FastAPI(title="Clinical Triage API", version="0.1.0")
 logger = logging.getLogger(__name__)
 exam_pipeline = ExamOCRPipeline()
+email_service = EmailService()
 
 
 class PatientDemographics(BaseModel):
@@ -88,6 +90,23 @@ class ExamAnalysisModel(BaseModel):
     critical_findings: List[str] = Field(default_factory=list)
 
 
+class PhysicianEmailModel(BaseModel):
+    """Delivery status for the physician notification email."""
+
+    to: str
+    subject: str
+    body_markdown: str
+    sent: bool
+    error: Optional[str] = None
+
+
+class PhysicianSummaryModel(BaseModel):
+    """Physician-facing summary payload and email metadata."""
+
+    orchestration_payload: Dict[str, Any]
+    email: PhysicianEmailModel
+
+
 class ExamFile(BaseModel):
     """Metadata describing external exam files available for review."""
 
@@ -122,6 +141,7 @@ class TriageResponse(BaseModel):
     summary: str
     recommended_actions: List[str]
     follow_up: Optional[str] = None
+    physician_summary: Optional[PhysicianSummaryModel] = None
 
 
 def authenticate(x_api_key: Optional[str] = Header(None)) -> None:
@@ -269,15 +289,65 @@ def _perform_triage(request: TriageRequest) -> TriageResponse:
             detail=f"Unable to complete triage: {exc}",
         ) from exc
 
+    try:
+        summary_prompt = PhysicianSummaryPrompt(
+            patient=patient,
+            complaints=payload.get("complaints", []),
+            exams=payload.get("exam_files", []),
+            exam_analysis=payload.get("exam_analysis_summary"),
+            triage_response=gpt_response,
+        )
+        summary_output = service.physician_summary(summary_prompt)
+        orchestration_payload = summary_output.get("orchestration_payload") or {}
+        email_details: Dict[str, Any] = summary_output.get("email") or {}
+        email_to = email_details.get("to") or settings.physician_email_recipient
+        email_subject = (
+            email_details.get("subject")
+            or email_details.get("assunto")
+            or "[Triagem] Paciente — Resumo"
+        )
+        email_body = (
+            email_details.get("body_markdown")
+            or email_details.get("corpo_markdown")
+            or ""
+        )
+
+        email_status = PhysicianEmailModel(
+            to=email_to,
+            subject=email_subject,
+            body_markdown=email_body,
+            sent=False,
+        )
+
+        try:
+            email_service.send_markdown_email(
+                to=email_to,
+                subject=email_subject,
+                body=email_body,
+            )
+            email_status.sent = True
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning("Failed to send physician email: %s", exc)
+            email_status.error = str(exc)
+
+        gpt_response["physician_summary"] = {
+            "orchestration_payload": orchestration_payload,
+            "email": email_status.dict(),
+        }
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.warning("Unable to produce physician summary: %s", exc)
+
+    response = TriageResponse(**gpt_response)
+
     persist_log(
         LogRecord(
             created_at=datetime.utcnow(),
             request_payload=payload,
-            response_payload=gpt_response,
+            response_payload=response.dict(),
         )
     )
 
-    return TriageResponse(**gpt_response)
+    return response
 
 
 @app.post("/triage", response_model=TriageResponse, dependencies=[Depends(authenticate)])
