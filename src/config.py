@@ -25,6 +25,11 @@ class Settings(BaseSettings):
         env="TRIAGE_LOG_DB_PATH",
         description="Location of the SQLite database used for request/response logging.",
     )
+    uploads_dir: Path = Field(
+        default=Path("data/uploads"),
+        env="TRIAGE_UPLOAD_DIR",
+        description="Directory where uploaded exam files will be stored.",
+    )
 
     class Config:
         env_file = ".env"
@@ -36,6 +41,13 @@ class Settings(BaseSettings):
         path = Path(value).expanduser()
         if not path.parent.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+
+    @validator("uploads_dir", pre=True)
+    def _prepare_upload_dir(cls, value: Path) -> Path:  # type: ignore[override]
+        """Create the upload directory when needed."""
+        path = Path(value).expanduser()
+        path.mkdir(parents=True, exist_ok=True)
         return path
 
 

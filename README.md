@@ -18,9 +18,9 @@ information to OpenAI's ChatGPT models, and stores request/response logs for fut
 
 ## Authentication
 
-The `/triage` endpoint expects an `X-API-Key` header when the `TRIAGE_API_TOKEN` environment
-variable is configured. Calls without the header (or with an incorrect token) are rejected with a
-`401 Unauthorized` response.
+The `/triage` and `/pre-atendimento` endpoints expect an `X-API-Key` header when the
+`TRIAGE_API_TOKEN` environment variable is configured. Calls without the header (or with an
+incorrect token) are rejected with a `401 Unauthorized` response.
 
 ```
 X-API-Key: ${TRIAGE_API_TOKEN}
@@ -32,6 +32,8 @@ X-API-Key: ${TRIAGE_API_TOKEN}
 - `TRIAGE_API_TOKEN` (optional): Shared secret for authenticating inbound requests.
 - `TRIAGE_LOG_DB_PATH` (optional): Path to the SQLite database used for request/response auditing.
   Defaults to `data/triage_logs.db`.
+- `TRIAGE_UPLOAD_DIR` (optional): Directory where uploaded exam files from the public form are
+  stored. Defaults to `data/uploads`.
 
 Environment variables can be stored in a `.env` file located in the project root during local
 development. The configuration module loads and expands file system paths automatically.
@@ -43,7 +45,7 @@ development. The configuration module loads and expands file system paths automa
 ```jsonc
 {
   "patient": {
-    "patient_id": "string",
+    "patient_id": "optional string",
     "name": "optional string",
     "age": 30,
     "sex": "optional string",
@@ -97,6 +99,22 @@ development. The configuration module loads and expands file system paths automa
    ```
 
 The API documentation is available at `http://localhost:8000/docs`.
+
+## Public form submissions (`POST /pre-atendimento`)
+
+The Google Sites embed shared in the project README can POST multipart form-data directly to the
+`/pre-atendimento` endpoint. The backend automatically maps the Portuguese field names to the
+internal triage schema, persists any uploaded exam files into `TRIAGE_UPLOAD_DIR`, and forwards the
+structured payload to ChatGPT just like the JSON endpoint.
+
+Important details:
+
+- **Honeypot and consent:** Submissions that fill the hidden `_honey` field or omit the
+  `consentimento` checkbox are rejected with `400 Bad Request`.
+- **Exam uploads:** `examesSangue` and `examesImagem` files are written to disk. The stored `file://`
+  URI is passed to the AI model and recorded in the audit logs for traceability.
+- **Generated patient IDs:** When the public form omits a `patient_id`, one is generated using the
+  contact details plus a random suffix to maintain traceability in the audit logs.
 
 ## Deployment
 
