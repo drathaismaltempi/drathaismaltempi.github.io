@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     """Runtime configuration loaded from environment variables."""
 
     openai_api_key: Optional[str] = Field(
+        #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
         default=None,
         env="OPENAI_API_KEY",
         description="API key used to authenticate with OpenAI's APIs.",
