@@ -97,6 +97,7 @@ class PhysicianEmailModel(BaseModel):
     subject: str
     body_markdown: str
     sent: bool
+    attachments: List[str] = Field(default_factory=list)
     error: Optional[str] = None
 
 
@@ -256,6 +257,17 @@ def _summarize_exam_analysis(exam_files: List[Dict[str, Any]]) -> List[Dict[str,
     return summaries
 
 
+def _collect_exam_attachments(exam_files: List[Dict[str, Any]]) -> List[Path]:
+    """Gather local exam files that can be attached to the physician email."""
+
+    attachments: List[Path] = []
+    for exam in exam_files:
+        path = _extract_local_exam_path(exam.get("url"))
+        if path and path.exists():
+            attachments.append(path)
+    return attachments
+
+
 def _perform_triage(request: TriageRequest) -> TriageResponse:
     """Shared triage execution used by both JSON and form submissions."""
 
@@ -265,12 +277,14 @@ def _perform_triage(request: TriageRequest) -> TriageResponse:
         patient["patient_id"] = _generate_patient_id(patient)
 
     exam_files_payload = payload.get("exam_files", [])
+    attachments: List[Path] = []
     if exam_files_payload:
         enriched_exam_files = _enrich_exam_files(exam_files_payload)
         payload["exam_files"] = enriched_exam_files
         summary = _summarize_exam_analysis(enriched_exam_files)
         if summary:
             payload["exam_analysis_summary"] = {"items": summary}
+        attachments = _collect_exam_attachments(enriched_exam_files)
 
     try:
         service = ChatGPTService()
@@ -312,11 +326,14 @@ def _perform_triage(request: TriageRequest) -> TriageResponse:
             or ""
         )
 
+        attachment_names = [path.name for path in attachments]
+
         email_status = PhysicianEmailModel(
             to=email_to,
             subject=email_subject,
             body_markdown=email_body,
             sent=False,
+            attachments=attachment_names,
         )
 
         try:
@@ -324,6 +341,7 @@ def _perform_triage(request: TriageRequest) -> TriageResponse:
                 to=email_to,
                 subject=email_subject,
                 body=email_body,
+                attachments=attachments,
             )
             email_status.sent = True
         except Exception as exc:  # pragma: no cover - defensive logging

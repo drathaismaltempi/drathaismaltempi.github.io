@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import mimetypes
 import smtplib
 from email.message import EmailMessage
-from typing import Optional
+from pathlib import Path
+from typing import Iterable, Optional, Sequence
 
 from src.config import settings
+
+
+def _iter_existing_paths(attachments: Optional[Sequence[Path]]) -> Iterable[Path]:
+    """Yield attachment paths that exist on disk."""
+
+    if not attachments:
+        return ()
+    return (path for path in attachments if path.exists())
 
 
 class EmailService:
@@ -38,8 +48,15 @@ class EmailService:
             and self._sender
         )
 
-    def send_markdown_email(self, *, to: str, subject: str, body: str) -> None:
-        """Send a plaintext/Markdown email via SMTP."""
+    def send_markdown_email(
+        self,
+        *,
+        to: str,
+        subject: str,
+        body: str,
+        attachments: Optional[Sequence[Path]] = None,
+    ) -> None:
+        """Send a plaintext/Markdown email via SMTP with optional attachments."""
 
         if not self.is_configured():
             raise RuntimeError("SMTP credentials are not fully configured.")
@@ -49,6 +66,19 @@ class EmailService:
         message["From"] = self._sender
         message["To"] = to
         message.set_content(body)
+
+        for path in _iter_existing_paths(attachments):
+            mime_type, encoding = mimetypes.guess_type(path.name)
+            if encoding:
+                mime_type = None
+            maintype, subtype = (mime_type or "application/octet-stream").split("/", 1)
+            with path.open("rb") as file_handle:
+                message.add_attachment(
+                    file_handle.read(),
+                    maintype=maintype,
+                    subtype=subtype,
+                    filename=path.name,
+                )
 
         with smtplib.SMTP(self._host, self._port, timeout=30) as smtp:
             smtp.starttls()

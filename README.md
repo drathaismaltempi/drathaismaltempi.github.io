@@ -147,7 +147,9 @@ by the [Responses API](https://platform.openai.com/docs/guides/responses) can be
 - The generated Markdown body is delivered via SMTP (Gmail) to
   `drathaismaltempi@outlook.com`. Configure `SMTP_USERNAME`/`SMTP_PASSWORD` with the
   `drathaispreconsulta@gmail.com` account or another credentialed sender. Failures are surfaced in
-  the API response (`physician_summary.email.sent`/`error`).
+  the API response (`physician_summary.email.sent`/`error`). When the submission contains
+  `file://` exam uploads, the original documents are attached to the outgoing e-mail so the
+  physician can open them directly from the inbox.
 
 ## Running Locally
 
