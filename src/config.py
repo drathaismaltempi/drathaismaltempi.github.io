@@ -68,8 +68,10 @@ class Settings(BaseSettings):
         env="PHYSICIAN_EMAIL_TO",
         description="Destination inbox for automated physician summaries.",
     )
+    _default_cors_origins = ["https://www.drathaismaltempi.com.br"]
+
     cors_allowed_origins: List[str] = Field(
-        default_factory=list,
+        default_factory=lambda: Settings._default_cors_origins.copy(),
         env="TRIAGE_CORS_ORIGINS",
         description=(
             "Comma separated list of origins allowed to call the public form endpoint."
