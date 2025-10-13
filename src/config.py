@@ -82,6 +82,17 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = False
 
+    @classmethod
+    def parse_env_var(cls, field_name, raw_value):
+            """Customize parsing for comma-delimited CORS origin lists."""
+
+            if field_name == "cors_allowed_origins":
+                if not raw_value:
+                    return []
+                return [origin.strip() for origin in raw_value.split(",") if origin.strip()]
+            return raw_value
+
+
     @validator("log_db_path", pre=True)
     def _expand_log_path(cls, value: Path) -> Path:  # type: ignore[override]
         """Ensure configured log path is expanded and resolved."""
