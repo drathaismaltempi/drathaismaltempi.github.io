@@ -216,9 +216,10 @@ analysis, and dispatch the physician summary e-mail automatically.
   variable for each deployment and scaling event, so referencing it ensures the web service binds to
   the correct socket.
 - **Render Python Runtime:** Add a `runtime.txt` file containing `python-3.12.3` (or another supported
-  3.12 release). This keeps the deployed interpreter aligned with local development. The PDF pipeline
-  now uses `pdfminer.six`, which ships universal wheels compatible with Python 3.13+, so upgrading the
-  runtime is safe once your infrastructure is ready.
+  3.12 release). This keeps the deployed interpreter aligned with local development. All required
+  libraries now publish prebuilt wheels for Python 3.13 (including Pillow 11+), and the FastAPI stack
+  explicitly pins `pydantic>=1.10.24` so Render deployments continue to boot even when the platform
+  uses its default 3.13 interpreter.
 
 ## Auditing
 

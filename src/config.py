@@ -1,8 +1,9 @@
 """Application configuration utilities."""
 
+import json
 from functools import lru_cache
 from pathlib import Path
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 from pydantic import BaseSettings, Field, validator
 
@@ -80,6 +81,38 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = False
 
+        @classmethod
+        def parse_env_var(cls, field_name, raw_value):
+            """Normalize the CORS allow-list regardless of value format."""
+
+            if field_name == "cors_allowed_origins":
+                if raw_value is None:
+                    return []
+
+                if isinstance(raw_value, str):
+                    candidate = raw_value.strip()
+                    if not candidate:
+                        return []
+
+                    try:
+                        parsed = json.loads(candidate)
+                    except (json.JSONDecodeError, TypeError):
+                        return [origin.strip() for origin in candidate.split(",") if origin.strip()]
+
+                    if isinstance(parsed, str):
+                        parsed = [parsed]
+                    if isinstance(parsed, Iterable) and not isinstance(parsed, (bytes, bytearray)):
+                        return [str(origin).strip() for origin in parsed if str(origin).strip()]
+
+                    return []
+
+                if isinstance(raw_value, Iterable):
+                    return [str(origin).strip() for origin in raw_value if str(origin).strip()]
+
+                return []
+
+            return raw_value
+
     @validator("log_db_path", pre=True)
     def _expand_log_path(cls, value: Path) -> Path:  # type: ignore[override]
         """Ensure configured log path is expanded and resolved."""
@@ -96,14 +129,19 @@ class Settings(BaseSettings):
         return path
 
     @validator("cors_allowed_origins", pre=True)
-    def _split_origins(cls, value: Optional[str]):  # type: ignore[override]
-        """Allow comma separated origins in environment variables."""
+    def _split_origins(cls, value):  # type: ignore[override]
+        """Coerce any provided origins collection into a clean list of strings."""
 
         if not value:
             return []
+
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
-        return value
+
+        if isinstance(value, Iterable) and not isinstance(value, (bytes, bytearray)):
+            return [str(origin).strip() for origin in value if str(origin).strip()]
+
+        return []
 
 
 @lru_cache()
