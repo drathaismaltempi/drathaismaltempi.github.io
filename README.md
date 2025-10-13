@@ -190,6 +190,14 @@ Important details:
 - **Security:** Ensure secrets (`OPENAI_API_KEY`, `TRIAGE_API_TOKEN`) are injected via the provider's
   secret management system. Configure secure storage (managed databases or encrypted volumes) for the
   SQLite log file when running outside of local development.
+- **Render Start Command:** Configure the Render service to launch Uvicorn with the platform-provided
+  port: `uvicorn src.api:app --host 0.0.0.0 --port $PORT`. Render sets the `$PORT` environment
+  variable for each deployment and scaling event, so referencing it ensures the web service binds to
+  the correct socket.
+- **Render Python Runtime:** Add a `runtime.txt` file containing `python-3.12.3` (or another supported
+  3.12 release). Render's default Python 3.13 image triggers a packaging error when installing
+  `pdfplumber`'s transitive dependencies. Explicitly pinning Python to 3.12 ensures the build
+  completes successfully.
 
 ## Auditing
 
