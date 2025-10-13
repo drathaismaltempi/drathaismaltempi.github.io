@@ -183,9 +183,10 @@ Important details:
 
 ### Checklist to make the public form work end-to-end
 
-1. **Publish the FastAPI service** somewhere accessible over HTTPS (Render, Fly.io, a VPS, etc.) and
-   note the URL of the `/pre-atendimento` endpoint (for example,
-   `https://api.sua-clinica.com/pre-atendimento`).
+1. **Publish the FastAPI service** somewhere accessible over HTTPS (Render, Fly.io, a VPS, etc.).
+   On Render, open your web service and copy the **Public URL** shown near the top of the dashboard
+   (for example `https://seu-backend.onrender.com`). Append `/pre-atendimento` to that URL so the
+   full endpoint becomes `https://seu-backend.onrender.com/pre-atendimento`.
 2. **Replace the placeholder endpoint** in `Pr-atendimento.html` (or the Google Sites embed) with
    the real URL so the browser submits the form to your server.
 3. **Allow the site origin through CORS** by setting `TRIAGE_CORS_ORIGINS` to the domain that hosts
