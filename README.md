@@ -156,8 +156,17 @@ by the [Responses API](https://platform.openai.com/docs/guides/responses) can be
 1. Create and activate a virtual environment.
 2. Install dependencies with `pip install -r requirements.txt`. Install the Tesseract binary if you
    plan to process image-based exams.
-3. Export the required environment variables (or create a `.env` file).
-4. Start the application using Uvicorn:
+3. Copy `.env.example` to `.env` (or export the variables in your shell) and fill in the required
+   secrets such as `OPENAI_API_KEY`.
+4. Ensure the upload directory configured by `TRIAGE_UPLOAD_DIR` exists and is writable. The default
+   value is `data/uploads`, which you can prepare with:
+
+   ```bash
+   mkdir -p data/uploads
+   chmod u+w data/uploads
+   ```
+
+5. Start the application using Uvicorn:
 
    ```bash
    uvicorn src.api:app --host 0.0.0.0 --port 8000 --reload
