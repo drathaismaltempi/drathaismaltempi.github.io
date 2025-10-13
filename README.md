@@ -124,7 +124,7 @@ by the [Responses API](https://platform.openai.com/docs/guides/responses) can be
 ## Laboratory exam OCR and classification
 
 - Uploaded PDF or image-based exam files (`file://` URIs produced by the public form) are parsed by
-  `src/services/exams.py` using `pdfplumber` for text-based PDFs and `pytesseract` (Tesseract OCR) for
+  `src/services/exams.py` using `pdfminer.six` for text-based PDFs and `pytesseract` (Tesseract OCR) for
   raster images.
 - Extracted measurements are normalized, matched against built-in reference ranges, and classified as
   `within_range`, `out_of_range`, or `critical`. Critical findings and a condensed summary are added to
@@ -195,9 +195,9 @@ Important details:
   variable for each deployment and scaling event, so referencing it ensures the web service binds to
   the correct socket.
 - **Render Python Runtime:** Add a `runtime.txt` file containing `python-3.12.3` (or another supported
-  3.12 release). Render's default Python 3.13 image triggers a packaging error when installing
-  `pdfplumber`'s transitive dependencies. Explicitly pinning Python to 3.12 ensures the build
-  completes successfully.
+  3.12 release). This keeps the deployed interpreter aligned with local development. The PDF pipeline
+  now uses `pdfminer.six`, which ships universal wheels compatible with Python 3.13+, so upgrading the
+  runtime is safe once your infrastructure is ready.
 
 ## Auditing
 

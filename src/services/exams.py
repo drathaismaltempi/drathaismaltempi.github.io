@@ -7,9 +7,10 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-import pdfplumber
+from pdfminer.high_level import extract_text as pdf_extract_text
+from pdfminer.pdfparser import PDFSyntaxError
 from PIL import Image
 import pytesseract
 
@@ -197,11 +198,11 @@ class ExamOCRPipeline:
     @staticmethod
     def _extract_pdf_text(file_path: Path) -> str:
         try:
-            with pdfplumber.open(file_path) as pdf:
-                pages: Iterable[str] = (
-                    page.extract_text() or "" for page in pdf.pages
-                )
-                return "\n".join(pages)
+            text = pdf_extract_text(str(file_path))
+            return text or ""
+        except (PDFSyntaxError, ValueError) as exc:
+            LOGGER.exception("Failed to extract text from PDF %s", file_path)
+            raise ValueError(f"Unable to process PDF: {exc}") from exc
         except Exception as exc:  # pragma: no cover - defensive logging
             LOGGER.exception("Failed to extract text from PDF %s", file_path)
             raise ValueError(f"Unable to process PDF: {exc}") from exc
