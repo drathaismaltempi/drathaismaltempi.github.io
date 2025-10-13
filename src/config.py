@@ -4,7 +4,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
-from pydantic import BaseSettings, Field, validator
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -69,20 +70,21 @@ class Settings(BaseSettings):
         description="Destination inbox for automated physician summaries.",
     )
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+    )
 
-    @validator("log_db_path", pre=True)
-    def _expand_log_path(cls, value: Path) -> Path:  # type: ignore[override]
+    @field_validator("log_db_path", mode="before")
+    def _expand_log_path(cls, value: Path | str) -> Path:
         """Ensure configured log path is expanded and resolved."""
         path = Path(value).expanduser()
         if not path.parent.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
         return path
 
-    @validator("uploads_dir", pre=True)
-    def _prepare_upload_dir(cls, value: Path) -> Path:  # type: ignore[override]
+    @field_validator("uploads_dir", mode="before")
+    def _prepare_upload_dir(cls, value: Path | str) -> Path:
         """Create the upload directory when needed."""
         path = Path(value).expanduser()
         path.mkdir(parents=True, exist_ok=True)
