@@ -181,6 +181,26 @@ Important details:
 - **Generated patient IDs:** When the public form omits a `patient_id`, one is generated using the
   contact details plus a random suffix to maintain traceability in the audit logs.
 
+### Checklist to make the public form work end-to-end
+
+1. **Publish the FastAPI service** somewhere accessible over HTTPS (Render, Fly.io, a VPS, etc.) and
+   note the URL of the `/pre-atendimento` endpoint (for example,
+   `https://api.sua-clinica.com/pre-atendimento`).
+2. **Replace the placeholder endpoint** in `Pr-atendimento.html` (or the Google Sites embed) with
+   the real URL so the browser submits the form to your server.
+3. **Allow the site origin through CORS** by setting `TRIAGE_CORS_ORIGINS` to the domain that hosts
+   the form (e.g. `TRIAGE_CORS_ORIGINS=https://www.drathaismaltempi.com.br`). This enables the
+   browser to complete the preflight `OPTIONS` request before uploading the data.
+4. **Provide the required secrets on the server:** `OPENAI_API_KEY` for the AI analysis and the
+   `SMTP_*` variables (plus `PHYSICIAN_EMAIL_TO` if you want to override the default) so the e-mail
+   can be delivered. Add an app password if your provider is Gmail.
+5. **Decide how to protect the endpoint.** If you set `TRIAGE_API_TOKEN`, the deployment platform
+   must inject the token into the `X-API-Key` header (for example, via a reverse proxy or edge
+   worker). Otherwise leave it unset for the public form.
+
+Once those pieces are in place, submitting the site form will call the FastAPI endpoint, run the AI
+analysis, and dispatch the physician summary e-mail automatically.
+
 ## Deployment
 
 - **Containerization:** Build a Docker image using a Python base, install the requirements, copy the

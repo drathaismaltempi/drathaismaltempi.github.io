@@ -21,6 +21,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from src.config import settings
@@ -30,6 +31,14 @@ from src.services.exams import ExamOCRPipeline
 from src.storage import LogRecord, persist_log
 
 app = FastAPI(title="Clinical Triage API", version="0.1.0")
+
+if settings.cors_allowed_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allowed_origins,
+        allow_methods=["POST", "OPTIONS"],
+        allow_headers=["*"],
+    )
 logger = logging.getLogger(__name__)
 exam_pipeline = ExamOCRPipeline()
 email_service = EmailService()
