@@ -94,17 +94,21 @@ class Settings(BaseSettings):
                     if not candidate:
                         return []
 
-                    try:
-                        parsed = json.loads(candidate)
-                    except (json.JSONDecodeError, TypeError):
-                        return [origin.strip() for origin in candidate.split(",") if origin.strip()]
+                    if candidate.lower() in {"null", "none"}:
+                        return []
 
-                    if isinstance(parsed, str):
-                        parsed = [parsed]
-                    if isinstance(parsed, Iterable) and not isinstance(parsed, (bytes, bytearray)):
-                        return [str(origin).strip() for origin in parsed if str(origin).strip()]
+                    if candidate[0] in "[\"{" or candidate[-1] in "]\"}":
+                        try:
+                            parsed = json.loads(candidate)
+                        except (json.JSONDecodeError, TypeError, ValueError):
+                            parsed = None
 
-                    return []
+                        if isinstance(parsed, str):
+                            parsed = [parsed]
+                        if isinstance(parsed, Iterable) and not isinstance(parsed, (bytes, bytearray)):
+                            return [str(origin).strip() for origin in parsed if str(origin).strip()]
+
+                    return [origin.strip() for origin in candidate.split(",") if origin.strip()]
 
                 if isinstance(raw_value, Iterable):
                     return [str(origin).strip() for origin in raw_value if str(origin).strip()]
