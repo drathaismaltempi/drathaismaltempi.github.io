@@ -8,6 +8,20 @@ from typing import Iterable, List, Optional
 from pydantic import BaseSettings, Field, validator
 
 
+def _safe_json_loads(value):
+    """Attempt JSON decoding while tolerating blank or malformed strings."""
+
+    if isinstance(value, str):
+        candidate = value.strip()
+        if not candidate:
+            return value
+
+    try:
+        return json.loads(value)
+    except (TypeError, ValueError):
+        return value
+
+
 class Settings(BaseSettings):
     """Runtime configuration loaded from environment variables."""
 
@@ -77,7 +91,7 @@ class Settings(BaseSettings):
         ),
     )
 
-    class Config:
+    class Config(BaseSettings.Config):
         env_file = ".env"
         case_sensitive = False
 
@@ -90,17 +104,7 @@ class Settings(BaseSettings):
 
             return raw_value
 
-        @staticmethod
-        def json_loads(value):
-            """Fallback to the original value when JSON decoding fails."""
-
-            if isinstance(value, str) and not value.strip():
-                return value
-
-            try:
-                return json.loads(value)
-            except (TypeError, ValueError):
-                return value
+        json_loads = staticmethod(_safe_json_loads)
 
     @validator("log_db_path", pre=True)
     def _expand_log_path(cls, value: Path) -> Path:  # type: ignore[override]
@@ -138,10 +142,9 @@ def _coerce_origins(value) -> List[str]:
         if candidate.lower() in {"null", "none"}:
             return []
 
-        try:
-            parsed = json.loads(candidate)
-        except (TypeError, ValueError):
-            parsed = None
+        parsed = None
+        if candidate[0] in "[{\"":
+            parsed = _safe_json_loads(candidate)
 
         if isinstance(parsed, str):
             candidate = parsed.strip()
