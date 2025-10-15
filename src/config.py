@@ -86,36 +86,21 @@ class Settings(BaseSettings):
             """Normalize the CORS allow-list regardless of value format."""
 
             if field_name == "cors_allowed_origins":
-                if raw_value is None:
-                    return []
-
-                if isinstance(raw_value, str):
-                    candidate = raw_value.strip()
-                    if not candidate:
-                        return []
-
-                    if candidate.lower() in {"null", "none"}:
-                        return []
-
-                    if candidate[0] in "[\"{" or candidate[-1] in "]\"}":
-                        try:
-                            parsed = json.loads(candidate)
-                        except (json.JSONDecodeError, TypeError, ValueError):
-                            parsed = None
-
-                        if isinstance(parsed, str):
-                            parsed = [parsed]
-                        if isinstance(parsed, Iterable) and not isinstance(parsed, (bytes, bytearray)):
-                            return [str(origin).strip() for origin in parsed if str(origin).strip()]
-
-                    return [origin.strip() for origin in candidate.split(",") if origin.strip()]
-
-                if isinstance(raw_value, Iterable):
-                    return [str(origin).strip() for origin in raw_value if str(origin).strip()]
-
-                return []
+                return _coerce_origins(raw_value)
 
             return raw_value
+
+        @staticmethod
+        def json_loads(value):
+            """Fallback to the original value when JSON decoding fails."""
+
+            if isinstance(value, str) and not value.strip():
+                return value
+
+            try:
+                return json.loads(value)
+            except (TypeError, ValueError):
+                return value
 
     @validator("log_db_path", pre=True)
     def _expand_log_path(cls, value: Path) -> Path:  # type: ignore[override]
@@ -136,16 +121,62 @@ class Settings(BaseSettings):
     def _split_origins(cls, value):  # type: ignore[override]
         """Coerce any provided origins collection into a clean list of strings."""
 
-        if not value:
+        return _coerce_origins(value)
+
+
+def _coerce_origins(value) -> List[str]:
+    """Return a sanitized list of CORS origins for any supported input."""
+
+    if value is None:
+        return []
+
+    if isinstance(value, str):
+        candidate = value.strip()
+        if not candidate:
             return []
 
-        if isinstance(value, str):
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        if candidate.lower() in {"null", "none"}:
+            return []
 
-        if isinstance(value, Iterable) and not isinstance(value, (bytes, bytearray)):
-            return [str(origin).strip() for origin in value if str(origin).strip()]
+        try:
+            parsed = json.loads(candidate)
+        except (TypeError, ValueError):
+            parsed = None
 
-        return []
+        if isinstance(parsed, str):
+            candidate = parsed.strip()
+            if not candidate:
+                return []
+            return [candidate]
+
+        if isinstance(parsed, Iterable) and not isinstance(parsed, (str, bytes, bytearray)):
+            cleaned = []
+            for origin in parsed:
+                if origin is None:
+                    continue
+                text = str(origin).strip()
+                if text:
+                    cleaned.append(text)
+            return cleaned
+
+        origins = []
+        for origin in candidate.split(","):
+            text = origin.strip()
+            if text and text.lower() not in {"null", "none"}:
+                origins.append(text)
+        return origins
+
+    if isinstance(value, Iterable) and not isinstance(value, (bytes, bytearray)):
+        cleaned = []
+        for origin in value:
+            if origin is None:
+                continue
+            text = str(origin).strip()
+            if text and text.lower() not in {"null", "none"}:
+                cleaned.append(text)
+        return cleaned
+
+    return []
 
 
 @lru_cache()
