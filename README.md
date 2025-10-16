@@ -48,6 +48,21 @@ X-API-Key: ${TRIAGE_API_TOKEN}
 Environment variables can be stored in a `.env` file located in the project root during local
 development. The configuration module loads and expands file system paths automatically.
 
+### Render deployment troubleshooting
+
+- **Render ignores repository `.env` files.** Add each variable in the Render dashboard (or via
+  `render.yaml`) so the runtime receives the same values used locally. Pushing a `.env` file to the
+  repository is not enough for hosted environments.
+- **Empty values still count as “set.”** When a variable such as `TRIAGE_CORS_ORIGINS` exists in the
+  dashboard but the value field is left blank, Render exports it as an empty string. The settings
+  loader treats that as “no origins” and falls back to an empty allow-list, but older deployments
+  without the latest configuration code may crash while trying to parse the blank value. Double-check
+  the deployed commit and either provide a concrete origin (e.g.
+  `https://www.drathaismaltempi.com.br`) or remove the variable entirely if you want the default.
+- **Syncing secrets:** For items marked with `sync: false` in `render.yaml`, be sure to copy the
+  production credentials into Render’s dashboard after importing the blueprint; otherwise the build
+  will succeed but the service will fail at runtime when the secrets are missing.
+
 ### Configuring the OpenAI API key and model
 
 1. Create a `.env` file in the project root (next to `README.md`) if it does not exist.
