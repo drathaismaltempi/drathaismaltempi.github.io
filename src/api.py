@@ -18,6 +18,7 @@ from fastapi import (
     Form,
     Header,
     HTTPException,
+    Request,
     UploadFile,
     status,
 )
@@ -154,10 +155,20 @@ class TriageResponse(BaseModel):
     physician_summary: Optional[PhysicianSummaryModel] = None
 
 
-def authenticate(x_api_key: Optional[str] = Header(None)) -> None:
-    """Verify that the caller provided the expected API key."""
+def authenticate(request: Request, x_api_key: Optional[str] = Header(None)) -> None:
+    """Verify that the caller provided the expected API key.
 
-    if settings.api_auth_token and x_api_key != settings.api_auth_token:
+    In addition to the standard ``X-API-Key`` header, the pre-atendimento form can
+    append the token as an ``api_key`` query parameter. This makes it possible to
+    protect the endpoint even when the hosting platform cannot inject custom
+    headers (e.g. Google Sites embeds).
+    """
+
+    if not settings.api_auth_token:
+        return
+
+    provided_token = x_api_key or request.query_params.get("api_key")
+    if provided_token != settings.api_auth_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key provided in X-API-Key header.",
