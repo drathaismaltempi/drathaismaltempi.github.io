@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import shutil
@@ -164,14 +165,28 @@ def authenticate(request: Request, x_api_key: Optional[str] = Header(None)) -> N
     headers (e.g. Google Sites embeds).
     """
 
-    if not settings.api_auth_token:
+    expected_token = settings.api_auth_token.strip() if settings.api_auth_token else None
+
+    if not expected_token:
         return
 
-    provided_token = x_api_key or request.query_params.get("api_key")
-    if provided_token != settings.api_auth_token:
+    provided_token = (x_api_key or request.query_params.get("api_key") or "").strip()
+
+    if provided_token != expected_token:
+        provided_fingerprint = (
+            hashlib.sha256(provided_token.encode()).hexdigest()[:8]
+            if provided_token
+            else "missing"
+        )
+        expected_fingerprint = hashlib.sha256(expected_token.encode()).hexdigest()[:8]
+        logger.warning(
+            "Rejected API request with fingerprint %s (expected %s)",
+            provided_fingerprint,
+            expected_fingerprint,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid API key provided in X-API-Key header.",
+            detail="Invalid API key provided. Refer to server logs for fingerprint comparison.",
         )
 
 
@@ -308,6 +323,17 @@ def _perform_triage(request: TriageRequest) -> TriageResponse:
 
     try:
         service = ChatGPTService()
+    except RuntimeError as exc:
+        logger.error("OpenAI configuration error: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "OpenAI integration is not configured. "
+                "Set the OPENAI_API_KEY environment variable and redeploy."
+            ),
+        ) from exc
+
+    try:
         prompt = TriagePrompt(
             patient=patient,
             complaints={"items": payload.get("complaints", [])},
