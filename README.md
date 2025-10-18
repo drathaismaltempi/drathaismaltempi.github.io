@@ -38,8 +38,8 @@ X-API-Key: ${TRIAGE_API_TOKEN}
 
 - `OPENAI_API_KEY` (required): API key used to authenticate with OpenAI. Requests return `500`
   with a configuration error message when this is missing.
-- `OPENAI_MODEL` (optional): ChatGPT model identifier to call (defaults to `gpt-4.1-mini`). If the
-  configured model is unavailable, the backend automatically falls back to `gpt-4.1-mini` and logs a
+- `OPENAI_MODEL` (optional): ChatGPT model identifier to call (defaults to `gpt-5.1-mini`). If the
+  configured model is unavailable, the backend automatically falls back to `gpt-5.1-mini` and logs a
   warning so triage requests continue to succeed.
 - `TRIAGE_API_TOKEN` (optional): Shared secret for authenticating inbound requests.
 - `TRIAGE_LOG_DB_PATH` (optional): Path to the SQLite database used for request/response auditing.
@@ -65,7 +65,7 @@ development. The configuration module loads and expands file system paths automa
 
    ```env
    OPENAI_API_KEY=sk-your-secret-key
-   OPENAI_MODEL=gpt-4.1-mini
+   OPENAI_MODEL=gpt-5.1-mini
    ```
 
 3. Restart the application (or reload your process manager) so the new environment variables are

@@ -148,9 +148,9 @@ class ChatGPTService:
             )
         self._client = OpenAI(api_key=settings.openai_api_key)
         self._model = settings.openai_model
-        # ``gpt-4.1-mini`` is broadly available and acts as a safe fallback when
+        # ``gpt-5.1-mini`` is broadly available and acts as a safe fallback when
         # a custom model configured in the environment is unavailable.
-        self._fallback_model: Optional[str] = "gpt-4.1-mini"
+        self._fallback_model: Optional[str] = "gpt-5.1-mini"
         if self._model == self._fallback_model:
             self._fallback_model = None
 

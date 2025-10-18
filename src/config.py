@@ -19,7 +19,7 @@ class Settings(BaseSettings):
         ),
     )
     openai_model: str = Field(
-        default="gpt-4.1-mini",
+        default="gpt-5.1-mini",
         env="OPENAI_MODEL",
         description="ChatGPT model identifier sent to the OpenAI Responses API.",
     )
