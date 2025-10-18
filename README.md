@@ -38,7 +38,9 @@ X-API-Key: ${TRIAGE_API_TOKEN}
 
 - `OPENAI_API_KEY` (required): API key used to authenticate with OpenAI. Requests return `500`
   with a configuration error message when this is missing.
-- `OPENAI_MODEL` (optional): ChatGPT model identifier to call (defaults to `gpt-4.1-mini`).
+- `OPENAI_MODEL` (optional): ChatGPT model identifier to call (defaults to `gpt-4.1-mini`). If the
+  configured model is unavailable, the backend automatically falls back to `gpt-4.1-mini` and logs a
+  warning so triage requests continue to succeed.
 - `TRIAGE_API_TOKEN` (optional): Shared secret for authenticating inbound requests.
 - `TRIAGE_LOG_DB_PATH` (optional): Path to the SQLite database used for request/response auditing.
   Defaults to `data/triage_logs.db`.
