@@ -1,6 +1,9 @@
 fastapi==0.110.0
 uvicorn[standard]==0.29.0
 openai==1.30.1
+# Pin httpx below 0.28 because openai 1.30.1 still instantiates httpx.Client
+# with the deprecated ``proxies`` keyword that was removed in httpx 0.28.
+httpx<0.28
 pydantic>=1.10.24,<1.11
 pdfminer.six==20231228
 pytesseract==0.3.10
