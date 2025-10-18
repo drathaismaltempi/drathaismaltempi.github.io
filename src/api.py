@@ -164,11 +164,14 @@ def authenticate(request: Request, x_api_key: Optional[str] = Header(None)) -> N
     headers (e.g. Google Sites embeds).
     """
 
-    if not settings.api_auth_token:
+    expected_token = settings.api_auth_token.strip() if settings.api_auth_token else None
+
+    if not expected_token:
         return
 
-    provided_token = x_api_key or request.query_params.get("api_key")
-    if provided_token != settings.api_auth_token:
+    provided_token = (x_api_key or request.query_params.get("api_key") or "").strip()
+
+    if provided_token != expected_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key provided in X-API-Key header.",
