@@ -197,7 +197,9 @@ Important details:
    can be delivered. Add an app password if your provider is Gmail.
 5. **Decide how to protect the endpoint.** If you set `TRIAGE_API_TOKEN`, the deployment platform
    must inject the token into the `X-API-Key` header (for example, via a reverse proxy or edge
-   worker). Otherwise leave it unset for the public form.
+   worker). When header injection is not possible (e.g. Google Sites), append `?api_key=SEU_TOKEN`
+   to the form action URL so the backend receives the shared secret via query string. Otherwise
+   leave `TRIAGE_API_TOKEN` unset for a fully public form.
 
 Once those pieces are in place, submitting the site form will call the FastAPI endpoint, run the AI
 analysis, and dispatch the physician summary e-mail automatically.
