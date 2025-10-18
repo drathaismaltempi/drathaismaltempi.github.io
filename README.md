@@ -28,6 +28,8 @@ lines) continue to work, but the characters still need to match exactly. When a 
 application logs SHA-256 fingerprints of the provided and expected values (first eight hex
 characters only) to help diagnose typos without exposing the secrets themselves.
 
+For uptime monitors, the root path (`GET /`) returns `{ "status": "ok" }` with HTTP `200`.
+
 ```
 X-API-Key: ${TRIAGE_API_TOKEN}
 ```

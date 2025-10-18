@@ -34,6 +34,13 @@ from src.storage import LogRecord, persist_log
 
 app = FastAPI(title="Clinical Triage API", version="0.1.0")
 
+
+@app.get("/", tags=["health"])
+def root() -> Dict[str, str]:
+    """Return a lightweight health payload for uptime checks."""
+
+    return {"status": "ok"}
+
 if settings.cors_allowed_origins:
     app.add_middleware(
         CORSMiddleware,
