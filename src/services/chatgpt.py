@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from openai import OpenAI
+from openai import BadRequestError, NotFoundError, OpenAI, OpenAIError
 
 from src.config import settings
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -143,28 +147,98 @@ class ChatGPTService:
                 "OPENAI_API_KEY is not configured. Set the environment variable before running the service."
             )
         self._client = OpenAI(api_key=settings.openai_api_key)
+        self._model = settings.openai_model
+        # ``gpt-5.1-mini`` is broadly available and acts as a safe fallback when
+        # a custom model configured in the environment is unavailable.
+        self._fallback_model: Optional[str] = "gpt-5.1-mini"
+        if self._model == self._fallback_model:
+            self._fallback_model = None
+
+    def _should_retry_with_fallback(self, exc: OpenAIError) -> bool:
+        """Return ``True`` when the exception indicates a missing/invalid model."""
+
+        if not self._fallback_model:
+            return False
+        message = getattr(exc, "message", "") or str(exc)
+        lowered = message.lower()
+        return "model" in lowered and any(keyword in lowered for keyword in ("not found", "unknown", "does not exist"))
+
+    def _request_completion(self, prompt_text: str):
+        """Call the Responses API and transparently fall back to a safe model."""
+
+        try:
+            return self._client.responses.create(
+                model=self._model,
+                input=[{"role": "user", "content": prompt_text}],
+                response_format={"type": "json_object"},
+            )
+        except NotFoundError as exc:
+            if self._should_retry_with_fallback(exc):
+                logger.warning(
+                    "Configured model '%s' not found. Falling back to '%s'.", self._model, self._fallback_model
+                )
+                completion = self._client.responses.create(
+                    model=self._fallback_model,
+                    input=[{"role": "user", "content": prompt_text}],
+                    response_format={"type": "json_object"},
+                )
+                self._model = self._fallback_model  # use the working model for subsequent calls
+                self._fallback_model = None
+                return completion
+            raise
+        except BadRequestError as exc:
+            if self._should_retry_with_fallback(exc):
+                logger.warning(
+                    "Configured model '%s' rejected the request (%s). Retrying with '%s'.",
+                    self._model,
+                    exc,
+                    self._fallback_model,
+                )
+                completion = self._client.responses.create(
+                    model=self._fallback_model,
+                    input=[{"role": "user", "content": prompt_text}],
+                    response_format={"type": "json_object"},
+                )
+                self._model = self._fallback_model
+                self._fallback_model = None
+                return completion
+            raise
+
+    @staticmethod
+    def _parse_completion(completion) -> Dict[str, Any]:
+        """Extract the JSON payload from the OpenAI Responses output."""
+
+        text = getattr(completion, "output_text", None)
+        if text:
+            text = text.strip()
+        if not text:
+            # Fallback for SDK versions that do not expose ``output_text``.
+            output = getattr(completion, "output", [])
+            if output:
+                first_item = output[0]
+                content = getattr(first_item, "content", None)
+                if content is None and isinstance(first_item, dict):
+                    content = first_item.get("content")
+                if content:
+                    part = content[0]
+                    text = getattr(part, "text", None)
+                    if text is None and isinstance(part, dict):
+                        text = part.get("text")
+        if not text:
+            raise RuntimeError("OpenAI response did not include textual content")
+        return json.loads(text)
 
     def triage(self, prompt: TriagePrompt) -> Dict[str, Any]:
         """Send the triage prompt to ChatGPT and return the structured response."""
 
-        completion = self._client.responses.create(
-            model=settings.openai_model,
-            input=[{"role": "user", "content": prompt.render()}],
-            response_format={"type": "json_object"},
-        )
-        message = completion.output[0].content[0].text  # type: ignore[index]
-        return json.loads(message)
+        completion = self._request_completion(prompt.render())
+        return self._parse_completion(completion)
 
     def physician_summary(self, prompt: PhysicianSummaryPrompt) -> Dict[str, Any]:
         """Generate the physician-oriented JSON summary and email body."""
 
-        completion = self._client.responses.create(
-            model=settings.openai_model,
-            input=[{"role": "user", "content": prompt.render()}],
-            response_format={"type": "json_object"},
-        )
-        message = completion.output[0].content[0].text  # type: ignore[index]
-        return json.loads(message)
+        completion = self._request_completion(prompt.render())
+        return self._parse_completion(completion)
 
 
 __all__ = ["ChatGPTService", "TriagePrompt", "PhysicianSummaryPrompt"]

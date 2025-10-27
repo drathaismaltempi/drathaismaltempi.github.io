@@ -19,7 +19,7 @@ class Settings(BaseSettings):
         ),
     )
     openai_model: str = Field(
-        default="gpt-5-mini",
+        default="gpt-5.1-mini",
         env="OPENAI_MODEL",
         description="ChatGPT model identifier sent to the OpenAI Responses API.",
     )
@@ -84,13 +84,13 @@ class Settings(BaseSettings):
 
     @classmethod
     def parse_env_var(cls, field_name, raw_value):
-            """Customize parsing for comma-delimited CORS origin lists."""
+        """Customize parsing for comma-delimited CORS origin lists."""
 
-            if field_name == "cors_allowed_origins":
-                if not raw_value:
-                    return []
-                return [origin.strip() for origin in raw_value.split(",") if origin.strip()]
-            return raw_value
+        if field_name == "cors_allowed_origins":
+            if not raw_value:
+                return []
+            return [origin.strip() for origin in raw_value.split(",") if origin.strip()]
+        return raw_value
 
 
     @validator("log_db_path", pre=True)

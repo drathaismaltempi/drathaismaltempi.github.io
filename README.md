@@ -22,7 +22,13 @@ information to OpenAI's ChatGPT models, and stores request/response logs for fut
 
 The `/triage` and `/pre-atendimento` endpoints expect an `X-API-Key` header when the
 `TRIAGE_API_TOKEN` environment variable is configured. Calls without the header (or with an
-incorrect token) are rejected with a `401 Unauthorized` response.
+incorrect token) are rejected with a `401 Unauthorized` response. Incoming values are compared after
+trimming surrounding whitespace so secrets copied from dashboard UIs (which sometimes append new
+lines) continue to work, but the characters still need to match exactly. When a mismatch occurs the
+application logs SHA-256 fingerprints of the provided and expected values (first eight hex
+characters only) to help diagnose typos without exposing the secrets themselves.
+
+For uptime monitors, the root path (`GET /`) returns `{ "status": "ok" }` with HTTP `200`.
 
 ```
 X-API-Key: ${TRIAGE_API_TOKEN}
@@ -30,8 +36,11 @@ X-API-Key: ${TRIAGE_API_TOKEN}
 
 ## Environment Variables
 
-- `OPENAI_API_KEY` (required): API key used to authenticate with OpenAI.
-- `OPENAI_MODEL` (optional): ChatGPT model identifier to call (defaults to `gpt-4.1-mini`).
+- `OPENAI_API_KEY` (required): API key used to authenticate with OpenAI. Requests return `500`
+  with a configuration error message when this is missing.
+- `OPENAI_MODEL` (optional): ChatGPT model identifier to call (defaults to `gpt-5.1-mini`). If the
+  configured model is unavailable, the backend automatically falls back to `gpt-5.1-mini` and logs a
+  warning so triage requests continue to succeed.
 - `TRIAGE_API_TOKEN` (optional): Shared secret for authenticating inbound requests.
 - `TRIAGE_LOG_DB_PATH` (optional): Path to the SQLite database used for request/response auditing.
   Defaults to `data/triage_logs.db`.
@@ -56,7 +65,7 @@ development. The configuration module loads and expands file system paths automa
 
    ```env
    OPENAI_API_KEY=sk-your-secret-key
-   OPENAI_MODEL=gpt-4.1-mini
+   OPENAI_MODEL=gpt-5.1-mini
    ```
 
 3. Restart the application (or reload your process manager) so the new environment variables are
