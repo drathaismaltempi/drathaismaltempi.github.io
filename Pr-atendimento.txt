@@ -978,4 +978,148 @@ _._ModuleManager_initialize('view/XDKZTc/cEt90b/sy0/sy1/sy2/qkPXAf:1,2,3,4,5/vVE
         }
     }
 </style>
-<section id="pre-atendimento" class="pr-wrapper"><h1>Pré-atendimento</h1><p class="lead">Olá! Para encaminhar suas informações à Dra. Thais e agilizar sua pré-avaliação, por favor preencha os dados abaixo:</p><form class="pr-grid" action="https://sua-api.exemplo/pre-atendimento" data-endpoint="https://sua-api.exemplo/pre-atendimento" method="POST" enctype="multipart/form-data"><div class="pr-honeypot" aria-hidden="true" style="position:absolute;left:-10000px;"><label>Não preencher: <input type="text" name="_honey" tabindex="-1"></label></div><div class="pr-columns"><label>Nome completo:<input type="text" name="nomeCompleto" required aria-required="true"></label><label>Idade:<input type="number" name="idade" min="0" max="120" required aria-required="true"></label><label>Contato (e-mail ou WhatsApp):<input type="text" name="contato" required aria-required="true"></label></div><fieldset><legend>Sintomas</legend><label>Por favor, descreva:<textarea name="sintomasDescricao" required aria-required="true"></textarea></label><div class="pr-columns"><label>Quando começaram:<input type="text" name="sintomasInicio"></label><label>Intensidade da dor (0 a 10):<input type="number" name="sintomasIntensidade" min="0" max="10"></label><label>O que piora ou melhora:<input type="text" name="sintomasFatores"></label></div></fieldset><fieldset><legend>Histórico clínico</legend><label>Comorbidades ou cirurgias prévias:<input type="text" name="historicoComorbidades"></label><label>Medicações e suplementos em uso:<input type="text" name="historicoMedicacoes"></label><label>Alergias conhecidas:<input type="text" name="historicoAlergias"></label></fieldset><fieldset><legend>Hábitos atuais</legend><label>Qualidade do sono:<textarea name="habitosSono"></textarea></label><div class="pr-columns"><label>Nível de estresse (0 a 10):<input type="number" name="habitosEstresse" min="0" max="10"></label><label>Alimentação:<textarea name="habitosAlimentacao"></textarea></label><label>Atividade física:<textarea name="habitosAtividade"></textarea></label></div></fieldset><fieldset><legend>Envio de exames (opcional)</legend><label>Exames de sangue:<input type="file" name="examesSangue" accept="image/*,.pdf" multiple></label><label>Exames de imagem:<input type="file" name="examesImagem" accept="image/*,.pdf" multiple></label></fieldset><div class="pr-consent"><input type="checkbox" id="prConsent" name="consentimento" required aria-required="true"><label for="prConsent">Autorizo o uso dos meus dados e exames para pré-anamnese e envio à Dra. Thais. Sei que não é diagnóstico nem prescrição.</label></div><button type="submit" class="pr-submit">Enviar</button><p class="pr-status" role="status" aria-live="polite"></p></form><script nonce="hLJzFrptqkX1J84n0saqOA">(function(){const form=document.querySelector('.pr-grid');if(!form)return;const status=form.querySelector('.pr-status');form.addEventListener('submit',async function(event){event.preventDefault();const endpoint=form.getAttribute('data-endpoint')||form.action;const formData=new FormData(form);if(status){status.textContent='Enviando…';status.dataset.state='sending';}try{const response=await fetch(endpoint,{method:form.method||'POST',body:formData});if(!response.ok)throw new Error('HTTP '+response.status);if(status){status.textContent='Dados enviados com sucesso.';status.dataset.state='success';}form.reset();}catch(error){console.error('Falha ao enviar pré-atendimento:',error);if(status){status.textContent='Não foi possível enviar seus dados. Tente novamente.';status.dataset.state='error';}}});})();</script></section></body></html>
+<section id="pre-atendimento" class="pr-wrapper">
+  <h1>Pré-atendimento</h1>
+  <p class="lead">
+    Olá! Para encaminhar suas informações à Dra. Thais e agilizar sua pré-avaliação, por favor preencha os dados abaixo:
+  </p>
+
+  <form class="pr-grid"
+        action="https://drathaismaltempi-github-io.onrender.com/pre-atendimento?api_key=8f7a3f2a1c9d4b5f8e2e6c0a9d"
+        data-endpoint="https://drathaismaltempi-github-io.onrender.com/pre-atendimento?api_key=8f7a3f2a1c9d4b5f8e2e6c0a9d"
+        method="POST"
+        enctype="multipart/form-data">
+
+    <div class="pr-honeypot" aria-hidden="true" style="position:absolute;left:-10000px;">
+      <label>Não preencher:
+        <input type="text" name="_honey" tabindex="-1">
+      </label>
+    </div>
+
+    <div class="pr-columns">
+      <label>Nome completo:
+        <input type="text" name="nomeCompleto" required aria-required="true">
+      </label>
+      <label>Idade:
+        <input type="number" name="idade" min="0" max="120" required aria-required="true">
+      </label>
+      <label>Contato (e-mail ou WhatsApp):
+        <input type="text" name="contato" required aria-required="true">
+      </label>
+    </div>
+
+    <fieldset>
+      <legend>Sintomas</legend>
+      <label>Por favor, descreva:
+        <textarea name="sintomasDescricao" required aria-required="true"></textarea>
+      </label>
+
+      <div class="pr-columns">
+        <label>Quando começaram:
+          <input type="text" name="sintomasInicio">
+        </label>
+        <label>Intensidade da dor (0 a 10):
+          <input type="number" name="sintomasIntensidade" min="0" max="10">
+        </label>
+        <label>O que piora ou melhora:
+          <input type="text" name="sintomasFatores">
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Histórico clínico</legend>
+      <label>Comorbidades ou cirurgias prévias:
+        <input type="text" name="historicoComorbidades">
+      </label>
+      <label>Medicações e suplementos em uso:
+        <input type="text" name="historicoMedicacoes">
+      </label>
+      <label>Alergias conhecidas:
+        <input type="text" name="historicoAlergias">
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Hábitos atuais</legend>
+      <label>Qualidade do sono:
+        <textarea name="habitosSono"></textarea>
+      </label>
+
+      <div class="pr-columns">
+        <label>Nível de estresse (0 a 10):
+          <input type="number" name="habitosEstresse" min="0" max="10">
+        </label>
+        <label>Alimentação:
+          <textarea name="habitosAlimentacao"></textarea>
+        </label>
+        <label>Atividade física:
+          <textarea name="habitosAtividade"></textarea>
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Envio de exames (opcional)</legend>
+      <label>Exames de sangue:
+        <input type="file" name="examesSangue" accept="image/*,.pdf" multiple>
+      </label>
+      <label>Exames de imagem:
+        <input type="file" name="examesImagem" accept="image/*,.pdf" multiple>
+      </label>
+    </fieldset>
+
+    <div class="pr-consent">
+      <input type="checkbox" id="prConsent" name="consentimento" required aria-required="true">
+      <label for="prConsent">
+        Autorizo o uso dos meus dados e exames para pré-anamnese e envio à Dra. Thais. Sei que não é diagnóstico nem prescrição.
+      </label>
+    </div>
+
+    <button type="submit" class="pr-submit">Enviar</button>
+    <p class="pr-status" role="status" aria-live="polite"></p>
+  </form>
+
+  <script nonce="hLJzFrptqkX1J84n0saqOA">
+    (function () {
+      const form = document.querySelector('.pr-grid');
+      if (!form) return;
+      const status = form.querySelector('.pr-status');
+
+      form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const endpoint = form.getAttribute('data-endpoint') || form.action;
+        const formData = new FormData(form);
+
+        if (status) {
+          status.textContent = 'Enviando…';
+          status.dataset.state = 'sending';
+        }
+
+        try {
+          const response = await fetch(endpoint, {
+            method: form.method || 'POST',
+            body: formData
+          });
+
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+
+          if (status) {
+            status.textContent = 'Dados enviados com sucesso.';
+            status.dataset.state = 'success';
+          }
+
+          form.reset();
+        } catch (error) {
+          console.error('Falha ao enviar pré-atendimento:', error);
+          if (status) {
+            status.textContent = 'Não foi possível enviar seus dados. Tente novamente.';
+            status.dataset.state = 'error';
+          }
+        }
+      });
+    })();
+  </script>
+</section>
+</body>
+</html>

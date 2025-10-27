@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseSettings, Field, validator
 
@@ -68,10 +68,30 @@ class Settings(BaseSettings):
         env="PHYSICIAN_EMAIL_TO",
         description="Destination inbox for automated physician summaries.",
     )
+    _default_cors_origins = ["https://www.drathaismaltempi.com.br"]
+
+    cors_allowed_origins: List[str] = Field(
+        default_factory=lambda: Settings._default_cors_origins.copy(),
+        env="TRIAGE_CORS_ORIGINS",
+        description=(
+            "Comma separated list of origins allowed to call the public form endpoint."
+        ),
+    )
 
     class Config:
         env_file = ".env"
         case_sensitive = False
+
+    @classmethod
+    def parse_env_var(cls, field_name, raw_value):
+            """Customize parsing for comma-delimited CORS origin lists."""
+
+            if field_name == "cors_allowed_origins":
+                if not raw_value:
+                    return []
+                return [origin.strip() for origin in raw_value.split(",") if origin.strip()]
+            return raw_value
+
 
     @validator("log_db_path", pre=True)
     def _expand_log_path(cls, value: Path) -> Path:  # type: ignore[override]
@@ -87,6 +107,16 @@ class Settings(BaseSettings):
         path = Path(value).expanduser()
         path.mkdir(parents=True, exist_ok=True)
         return path
+
+    @validator("cors_allowed_origins", pre=True)
+    def _split_origins(cls, value: Optional[str]):  # type: ignore[override]
+        """Allow comma separated origins in environment variables."""
+
+        if not value:
+            return []
+        if isinstance(value, str):
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
 
 
 @lru_cache()

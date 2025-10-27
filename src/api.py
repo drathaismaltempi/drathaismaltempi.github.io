@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import shutil
@@ -18,9 +19,11 @@ from fastapi import (
     Form,
     Header,
     HTTPException,
+    Request,
     UploadFile,
     status,
 )
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from src.config import settings
@@ -30,6 +33,14 @@ from src.services.exams import ExamOCRPipeline
 from src.storage import LogRecord, persist_log
 
 app = FastAPI(title="Clinical Triage API", version="0.1.0")
+
+if settings.cors_allowed_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allowed_origins,
+        allow_methods=["POST", "OPTIONS"],
+        allow_headers=["*"],
+    )
 logger = logging.getLogger(__name__)
 exam_pipeline = ExamOCRPipeline()
 email_service = EmailService()
@@ -145,13 +156,37 @@ class TriageResponse(BaseModel):
     physician_summary: Optional[PhysicianSummaryModel] = None
 
 
-def authenticate(x_api_key: Optional[str] = Header(None)) -> None:
-    """Verify that the caller provided the expected API key."""
+def authenticate(request: Request, x_api_key: Optional[str] = Header(None)) -> None:
+    """Verify that the caller provided the expected API key.
 
-    if settings.api_auth_token and x_api_key != settings.api_auth_token:
+    In addition to the standard ``X-API-Key`` header, the pre-atendimento form can
+    append the token as an ``api_key`` query parameter. This makes it possible to
+    protect the endpoint even when the hosting platform cannot inject custom
+    headers (e.g. Google Sites embeds).
+    """
+
+    expected_token = settings.api_auth_token.strip() if settings.api_auth_token else None
+
+    if not expected_token:
+        return
+
+    provided_token = (x_api_key or request.query_params.get("api_key") or "").strip()
+
+    if provided_token != expected_token:
+        provided_fingerprint = (
+            hashlib.sha256(provided_token.encode()).hexdigest()[:8]
+            if provided_token
+            else "missing"
+        )
+        expected_fingerprint = hashlib.sha256(expected_token.encode()).hexdigest()[:8]
+        logger.warning(
+            "Rejected API request with fingerprint %s (expected %s)",
+            provided_fingerprint,
+            expected_fingerprint,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid API key provided in X-API-Key header.",
+            detail="Invalid API key provided. Refer to server logs for fingerprint comparison.",
         )
 
 
@@ -288,6 +323,17 @@ def _perform_triage(request: TriageRequest) -> TriageResponse:
 
     try:
         service = ChatGPTService()
+    except RuntimeError as exc:
+        logger.error("OpenAI configuration error: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "OpenAI integration is not configured. "
+                "Set the OPENAI_API_KEY environment variable and redeploy."
+            ),
+        ) from exc
+
+    try:
         prompt = TriagePrompt(
             patient=patient,
             complaints={"items": payload.get("complaints", [])},
