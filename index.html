@@ -1944,7 +1944,7 @@ _._ModuleManager_initialize('view/XDKZTc/cEt90b/sy0/sy1/sy2/qkPXAf:1,2,3,4,5/vVE
    <p class="lead">
     Olá! Para encaminhar suas informações à Dra. Thais e agilizar sua pré-avaliação, por favor preencha os dados abaixo:
    </p>
-   <form action="/pre-atendimento" class="pr-grid" data-endpoint="/pre-atendimento" enctype="multipart/form-data" method="POST">
+    <form action="/pre-atendimento" class="pr-grid" data-api-key="" data-endpoint="/pre-atendimento" enctype="multipart/form-data" method="POST">
     <div aria-hidden="true" class="pr-honeypot" style="position:absolute;left:-10000px;">
      <label>
       Não preencher:
@@ -2061,8 +2061,27 @@ _._ModuleManager_initialize('view/XDKZTc/cEt90b/sy0/sy1/sy2/qkPXAf:1,2,3,4,5/vVE
 
       form.addEventListener('submit', async function (event) {
         event.preventDefault();
-        const endpoint = form.getAttribute('data-endpoint') || form.action;
+        const rawEndpoint = form.getAttribute('data-endpoint') || form.action;
         const formData = new FormData(form);
+        const apiKey = (form.dataset.apiKey || '').trim();
+        const headers = {};
+
+        let endpoint = rawEndpoint;
+
+        if (apiKey) {
+          headers['X-API-Key'] = apiKey;
+
+          try {
+            const url = new URL(rawEndpoint, window.location.origin);
+            if (!url.searchParams.has('api_key')) {
+              url.searchParams.set('api_key', apiKey);
+            }
+            endpoint = url.toString();
+          } catch (parseError) {
+            const separator = rawEndpoint.includes('?') ? '&' : '?';
+            endpoint = rawEndpoint + separator + 'api_key=' + encodeURIComponent(apiKey);
+          }
+        }
 
         if (status) {
           status.textContent = 'Enviando…';
@@ -2072,7 +2091,8 @@ _._ModuleManager_initialize('view/XDKZTc/cEt90b/sy0/sy1/sy2/qkPXAf:1,2,3,4,5/vVE
         try {
           const response = await fetch(endpoint, {
             method: form.method || 'POST',
-            body: formData
+            body: formData,
+            headers
           });
 
           if (!response.ok) throw new Error('HTTP ' + response.status);
