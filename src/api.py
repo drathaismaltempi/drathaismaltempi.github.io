@@ -1,4 +1,4 @@
-"""FastAPI application exposing the triage endpoint."""
+"""FastAPI application exposing the triage endpoint and serving the public index.html."""
 
 from __future__ import annotations
 
@@ -24,6 +24,8 @@ from fastapi import (
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from src.config import settings
@@ -32,15 +34,14 @@ from src.services.emailer import EmailService
 from src.services.exams import ExamOCRPipeline
 from src.storage import LogRecord, persist_log
 
+# --- Infra de app e site público -------------------------------------------------
+
 app = FastAPI(title="Clinical Triage API", version="0.1.0")
 
+# Caminho absoluto da raiz do projeto (api.py está em REPO/src)
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-@app.get("/", tags=["health"])
-def root() -> Dict[str, str]:
-    """Return a lightweight health payload for uptime checks."""
-
-    return {"status": "ok"}
-
+# CORS, se configurado
 if settings.cors_allowed_origins:
     app.add_middleware(
         CORSMiddleware,
@@ -48,14 +49,58 @@ if settings.cors_allowed_origins:
         allow_methods=["POST", "OPTIONS"],
         allow_headers=["*"],
     )
+
+# Opcional: montar /static apontando para a raiz (útil se você referenciar /static/... no HTML)
+app.mount("/static", StaticFiles(directory=PROJECT_ROOT), name="static")
+
+
+@app.get("/", tags=["site"])
+def serve_homepage():
+    """Servir a landing page pública (index.html na raiz do repo)."""
+    index_path = PROJECT_ROOT / "index.html"
+    if not index_path.exists():
+        raise HTTPException(status_code=404, detail="index.html não encontrado na raiz do projeto.")
+    return FileResponse(index_path)
+
+
+@app.get("/healthz", tags=["health"])
+def healthz() -> Dict[str, str]:
+    """Healthcheck para o Render."""
+    return {"status": "ok"}
+
+
+@app.get("/{path:path}", include_in_schema=False)
+def serve_static_catch_all(path: str):
+    """
+    Servir qualquer arquivo estático existente na raiz do repo.
+    Ex.: /style.css, /script.js, /img/logo.png
+    Não conflita com /triage e /pre-atendimento (rotas explícitas).
+    """
+    # Normalizar e impedir path traversal
+    candidate = (PROJECT_ROOT / path).resolve()
+    try:
+        PROJECT_ROOT.resolve().relative_to(PROJECT_ROOT.resolve())
+    except Exception:
+        pass  # só para garantir que PROJECT_ROOT resolve sem erro
+
+    if not str(candidate).startswith(str(PROJECT_ROOT.resolve())):
+        raise HTTPException(status_code=403, detail="Acesso negado.")
+
+    if candidate.is_file():
+        return FileResponse(candidate)
+
+    raise HTTPException(status_code=404, detail="Arquivo não encontrado.")
+
+# --- Serviços/State ----------------------------------------------------------------
+
 logger = logging.getLogger(__name__)
 exam_pipeline = ExamOCRPipeline()
 email_service = EmailService()
 
+# --- Modelos -----------------------------------------------------------------------
 
 class PatientDemographics(BaseModel):
     """Structured patient demographic information."""
-
     patient_id: Optional[str] = Field(
         default=None, description="Unique identifier for the patient provided by the client."
     )
@@ -69,7 +114,6 @@ class PatientDemographics(BaseModel):
 
 class Complaint(BaseModel):
     """A primary complaint provided by the patient."""
-
     summary: str = Field(..., description="Short description of the complaint.")
     onset: Optional[str] = Field(None, description="Reported onset time frame.")
     severity: Optional[str] = Field(None, description="Patient-reported severity.")
@@ -80,7 +124,6 @@ class Complaint(BaseModel):
 
 class ReferenceRangeModel(BaseModel):
     """Reference interval associated with an extracted exam measurement."""
-
     low: Optional[float] = None
     high: Optional[float] = None
     unit: Optional[str] = None
@@ -88,7 +131,6 @@ class ReferenceRangeModel(BaseModel):
 
 class ExamMeasurementModel(BaseModel):
     """Structured laboratory measurement extracted from an exam document."""
-
     name: str
     value: Optional[float] = None
     unit: Optional[str] = None
@@ -101,7 +143,6 @@ class ExamMeasurementModel(BaseModel):
 
 class ExamAnalysisModel(BaseModel):
     """OCR analysis output for an exam file."""
-
     source: str
     text_excerpt: str
     measurements: List[ExamMeasurementModel]
@@ -110,7 +151,6 @@ class ExamAnalysisModel(BaseModel):
 
 class PhysicianEmailModel(BaseModel):
     """Delivery status for the physician notification email."""
-
     to: str
     subject: str
     body_markdown: str
@@ -121,14 +161,12 @@ class PhysicianEmailModel(BaseModel):
 
 class PhysicianSummaryModel(BaseModel):
     """Physician-facing summary payload and email metadata."""
-
     orchestration_payload: Dict[str, Any]
     email: PhysicianEmailModel
 
 
 class ExamFile(BaseModel):
     """Metadata describing external exam files available for review."""
-
     label: str = Field(..., description="Human readable label for the exam file.")
     url: Optional[str] = Field(
         default=None, description="Secure URL or file URI where the exam file can be accessed."
@@ -147,7 +185,6 @@ class ExamFile(BaseModel):
 
 class TriageRequest(BaseModel):
     """Payload accepted by the triage endpoint."""
-
     patient: PatientDemographics
     complaints: List[Complaint] = Field(..., description="List of patient complaints.")
     exam_files: List[ExamFile] = Field(default_factory=list, description="Related exam files.")
@@ -155,13 +192,13 @@ class TriageRequest(BaseModel):
 
 class TriageResponse(BaseModel):
     """Structured response returned by the triage endpoint."""
-
     priority_level: str
     summary: str
     recommended_actions: List[str]
     follow_up: Optional[str] = None
     physician_summary: Optional[PhysicianSummaryModel] = None
 
+# --- Auth -------------------------------------------------------------------------
 
 def authenticate(request: Request, x_api_key: Optional[str] = Header(None)) -> None:
     """Verify that the caller provided the expected API key.
@@ -171,7 +208,6 @@ def authenticate(request: Request, x_api_key: Optional[str] = Header(None)) -> N
     protect the endpoint even when the hosting platform cannot inject custom
     headers (e.g. Google Sites embeds).
     """
-
     expected_token = settings.api_auth_token.strip() if settings.api_auth_token else None
 
     if not expected_token:
@@ -196,10 +232,10 @@ def authenticate(request: Request, x_api_key: Optional[str] = Header(None)) -> N
             detail="Invalid API key provided. Refer to server logs for fingerprint comparison.",
         )
 
+# --- Util de exames/email ---------------------------------------------------------
 
 def _generate_patient_id(patient: Dict[str, Any]) -> str:
     """Generate a deterministic-ish patient id using available info."""
-
     contact = (patient.get("contact_information") or {}).get("primary")
     name = patient.get("name")
     base = contact or name or "patient"
@@ -211,7 +247,6 @@ def _generate_patient_id(patient: Dict[str, Any]) -> str:
 
 def _store_uploads(label: str, uploads: List[UploadFile]) -> List[ExamFile]:
     """Persist uploaded exam files and return their metadata."""
-
     saved: List[ExamFile] = []
     if not uploads:
         return saved
@@ -242,7 +277,6 @@ def _store_uploads(label: str, uploads: List[UploadFile]) -> List[ExamFile]:
 
 def _extract_local_exam_path(url: Optional[str]) -> Optional[Path]:
     """Return a local filesystem path if the exam URL references a local file."""
-
     if not url:
         return None
     parsed = urlparse(url)
@@ -253,7 +287,6 @@ def _extract_local_exam_path(url: Optional[str]) -> Optional[Path]:
 
 def _enrich_exam_files(exam_files: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Attach OCR analysis output to exam metadata when files are local."""
-
     enriched: List[Dict[str, Any]] = []
     for exam in exam_files:
         exam_copy = dict(exam)
@@ -271,7 +304,6 @@ def _enrich_exam_files(exam_files: List[Dict[str, Any]]) -> List[Dict[str, Any]]
 
 def _summarize_exam_analysis(exam_files: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Build a compact summary of the extracted exam measurements."""
-
     summaries: List[Dict[str, Any]] = []
     for exam in exam_files:
         analysis = exam.get("analysis")
@@ -301,7 +333,6 @@ def _summarize_exam_analysis(exam_files: List[Dict[str, Any]]) -> List[Dict[str,
 
 def _collect_exam_attachments(exam_files: List[Dict[str, Any]]) -> List[Path]:
     """Gather local exam files that can be attached to the physician email."""
-
     attachments: List[Path] = []
     for exam in exam_files:
         path = _extract_local_exam_path(exam.get("url"))
@@ -312,7 +343,6 @@ def _collect_exam_attachments(exam_files: List[Dict[str, Any]]) -> List[Path]:
 
 def _perform_triage(request: TriageRequest) -> TriageResponse:
     """Shared triage execution used by both JSON and form submissions."""
-
     payload = request.dict()
     patient = payload.setdefault("patient", {})
     if not patient.get("patient_id"):
@@ -420,11 +450,11 @@ def _perform_triage(request: TriageRequest) -> TriageResponse:
 
     return response
 
+# --- Endpoints públicos da API ----------------------------------------------------
 
 @app.post("/triage", response_model=TriageResponse, dependencies=[Depends(authenticate)])
 def triage(request: TriageRequest) -> TriageResponse:
     """Perform a triage assessment from a JSON payload."""
-
     return _perform_triage(request)
 
 
@@ -454,7 +484,6 @@ async def pre_atendimento(
     _honey: Optional[str] = Form(None),
 ) -> TriageResponse:
     """Accept submissions from the public-facing Google Sites form."""
-
     if _honey:  # honeypot triggered
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Spam detected.")
     if not consentimento:
